@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 var (
@@ -24,8 +26,12 @@ func init() {
 
 func main() {
 
+	var (
+		req *http.Request
+		res *http.Response
+	)
 	if g != "get request url" {
-		req, res := newreq("GET", g, nil)
+		req, res = newreq("GET", g, nil)
 		request(req)
 		response(res)
 	} else if p != "post request url" {
@@ -42,10 +48,23 @@ func main() {
 		}
 
 		info := makeParameter(form)
-		req, res := newreq("POST", p, info)
+		req, res = newreq("POST", p, info)
 		request(req)
 		response(res)
 	}
+	defer res.Body.Close()
+	fmt.Println("You can enter a html element that you want.")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	dom(scanner.Text(), res.Body)
+}
+
+func dom(label string, Body io.Reader) {
+	doc, _ := goquery.NewDocumentFromReader(Body)
+	doc.Find(label).Each(func(i int, selection *goquery.Selection) {
+		fmt.Println(selection.Text())
+		fmt.Println()
+	})
 }
 
 func makeParameter(form map[string]string) io.Reader {
@@ -78,9 +97,7 @@ func newreq(method string, url string, parameter io.Reader) (*http.Request, *htt
 	}
 	res, err := http.DefaultClient.Do(req)
 	deal(err)
-	defer res.Body.Close()
-	// body, _ := ioutil.ReadAll(res.Body)
-	// fmt.Println(string(body))
+	// defer res.Body.Close()
 	return req, res
 }
 
