@@ -1,26 +1,33 @@
 package main
 
 import (
-	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
 var (
-	g string
-	p string
+	g       bool
+	p       bool
+	u       string
+	headers bool
+	params  bool
+	help    bool
 )
 
 func init() {
-	flag.StringVar(&g, "g", "get request url", "GET()请求地址")
-	flag.StringVar(&p, "p", "post request url", "POST()请求地址")
+	flag.BoolVar(&g, "g", false, "GET REQUEST")
+	flag.BoolVar(&p, "p", false, "POST REQUEST")
+	flag.BoolVar(&headers, "headers", false, "ADD HEADERS")
+	flag.BoolVar(&params, "params", false, "ADD PARAMS")
+	flag.BoolVar(&help, "help", false, "HELP DOC")
+	flag.StringVar(&u, "u", "request url", "REQUEST URL")
 	flag.Parse()
 }
 
@@ -30,57 +37,38 @@ func main() {
 		req *http.Request
 		res *http.Response
 	)
-	if g != "get request url" {
-		req, res = newreq("GET", g, nil)
-		request(req)
-		response(res)
-	} else if p != "post request url" {
-		form := make(map[string]string, 0)
-		fmt.Println("input key:value in one line,press over to break.")
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			if scanner.Text() == "over" {
-				break
-			}
-			kv := make([]string, 2, 2)
-			kv = strings.Split(scanner.Text(), ":")
-			form[kv[0]] = kv[1]
-		}
 
-		info := makeParameter(form)
-		req, res = newreq("POST", p, info)
-		request(req)
-		response(res)
+	if u == "request url" {
+		log.Fatal(errors.New("URL不能为空。"))
 	}
-	defer res.Body.Close()
-	fmt.Println("You can enter a html element that you want.")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	dom(scanner.Text(), res.Body)
+
+	if g {
+		req, res = GET(&u)
+		defer res.Body.Close()
+	} else if p {
+		req, res = POST(u)
+		defer res.Body.Close()
+	}
+	request(req)
+	response(res)
+	analyze(res)
 }
 
-func dom(label string, Body io.Reader) {
-	doc, _ := goquery.NewDocumentFromReader(Body)
-	doc.Find(label).Each(func(i int, selection *goquery.Selection) {
-		fmt.Println(selection.Text())
-		fmt.Println()
-	})
-}
-
-func makeParameter(form map[string]string) io.Reader {
-	var str string
-	cnt := 0
-	for k, v := range form {
-		each := k + "=" + v
-		if cnt == 0 {
-			str = each
-		} else {
-			str = str + "&" + each
+func analyze(res *http.Response) {
+	var x string
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	deal(err)
+	for {
+		fmt.Println("HTML选择器支持通过标签选择，exit结束。")
+		fmt.Scanln(&x)
+		if x == "exit" {
+			break
 		}
-		cnt++
+		doc.Find(x).Each(func(i int, selection *goquery.Selection) {
+			fmt.Println(selection.Text())
+			fmt.Println()
+		})
 	}
-	info := strings.NewReader(str)
-	return info
 }
 
 func deal(err error) {
@@ -89,16 +77,88 @@ func deal(err error) {
 	}
 }
 
-func newreq(method string, url string, parameter io.Reader) (*http.Request, *http.Response) {
-	req, err := http.NewRequest(method, url, parameter)
+func GET(url *string) (*http.Request, *http.Response) {
+	getParams(url)
+	req, err := http.NewRequest("GET", *url, nil)
 	deal(err)
-	if method == "POST" {
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	}
+	addHeaders(req)
 	res, err := http.DefaultClient.Do(req)
 	deal(err)
-	// defer res.Body.Close()
 	return req, res
+}
+
+func POST(url string) (*http.Request, *http.Response) {
+	params := postParams()
+	req, err := http.NewRequest("POST", url, params)
+	deal(err)
+	addHeaders(req)
+	res, err := http.DefaultClient.Do(req)
+	deal(err)
+	return req, res
+}
+
+func addHeaders(req *http.Request) {
+	var x string
+	fmt.Println("以 key:value 格式输入要添加的消息头，exit 结束。")
+	for {
+		fmt.Scanln(&x)
+		if x == "exit" {
+			break
+		}
+		kv := make([]string, 2, 2)
+		kv = strings.Split(x, ":")
+		req.Header.Add(kv[0], kv[1])
+	}
+}
+
+func getParams(url *string) {
+	var (
+		x string
+		i int
+	)
+	i = 0
+	fmt.Println("以 key:value 格式输入要添加的参数，exit 结束。")
+	for {
+		fmt.Scanln(&x)
+		if x == "exit" {
+			break
+		}
+		kv := make([]string, 2, 2)
+		kv = strings.Split(x, ":")
+		if i == 0 {
+			*url = *url + "?" + kv[0] + "=" + kv[1]
+		} else {
+			*url = *url + "&" + kv[0] + "=" + kv[1]
+		}
+		i++
+	}
+}
+
+func postParams() io.Reader {
+	var (
+		x   string
+		i   int
+		str string
+	)
+	i = 0
+	fmt.Println("以 key:value 格式输入要添加的参数，exit 结束。")
+	for {
+		fmt.Scanln(&x)
+		if x == "exit" {
+			break
+		}
+		kv := make([]string, 2, 2)
+		kv = strings.Split(x, ":")
+		each := kv[0] + "=" + kv[1]
+		if i == 0 {
+			str = each
+		} else {
+			str = str + "&" + each
+		}
+		i++
+	}
+	params := strings.NewReader(str)
+	return params
 }
 
 func request(req *http.Request) {
