@@ -6,7 +6,7 @@ HTTP抓包工具，运行在命令行
    -g：get请求
    -u：url，连接必须加上http/https
 
-     ![get](C:\Users\greens\Desktop\get.png)
+     ![get](https://raw.githubusercontent.com/greensburst/http-capture/master/photo/get.png)
 
    这里添加的参数等同于 https://www.baidu.com?a=1&b2
 
@@ -14,14 +14,14 @@ HTTP抓包工具，运行在命令行
 
    -p：post请求
 
-    ![post](C:\Users\greens\Desktop\post.png)
+    ![post](https://github.com/greensburst/http-capture/blob/master/photo/post.png?raw=true)
 
-​	post的添加参数和消息头与get请求一样
+​post的添加参数和消息头与get请求一样
 
-​	 发起get/post请求后会显示request和response的请求行和请求头
+​发起get/post请求后会显示request和response的请求行和请求头
 
-![result](C:\Users\greens\Desktop\result.png)
+![result](https://github.com/greensburst/http-capture/blob/master/photo/result.png?raw=true)
 
-​	支持通过html标签筛选响应正文
+​支持通过html标签筛选响应正文
 
- ![label](C:\Users\greens\Desktop\label.png)
+![label](https://github.com/greensburst/http-capture/blob/master/photo/label.png?raw=true)
